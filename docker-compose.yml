@@ -1,0 +1,277 @@
+version: "3.3"
+services:
+
+  ######################
+  # dc1
+  ######################
+
+  # consul server1
+  dc1-consul-server1-node:
+    container_name: dc1-consul-server1-node
+    hostname: dc1-consul-server1-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 127.0.0.1
+    ports:
+      - 8500:8500
+      - 8300:8300
+    networks:
+      dc1:
+        ipv4_address: 10.5.0.2
+      wan:
+        ipv4_address: 192.168.0.2
+  dc1-consul-server1:
+    network_mode: service:dc1-consul-server1-node
+    container_name: dc1-consul-server1
+    depends_on:
+      - dc1-consul-server1-node
+    image: hashicorp/consul-enterprise:1.8.3-ent
+    command:
+      - consul
+      - agent
+      - -hcl
+      - |
+        advertise_addr     = "10.5.0.2"
+        advertise_addr_wan = "192.168.0.2"
+        datacenter         = "dc1"
+        retry_join         = ["10.5.0.2","10.5.0.3"]
+        retry_join_wan     = ["192.168.0.2","192.168.0.4"]
+      - -config-file
+      - /config/shared.hcl
+      - -config-file
+      - /config/shared-server.hcl
+    volumes:
+      - "./config:/config"
+      - "./data/consul-dc1:/data"
+      - "./services/dc1:/services"
+      - "./certs:/certs"
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  # counting1
+  dc1-counting1-node:
+    container_name: dc1-counting1-node
+    hostname: dc1-counting1-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 10.5.0.2
+    ports:
+      - 9101:9001
+    networks:
+      dc1:
+        ipv4_address: 10.5.0.3
+  dc1-counting1:
+    network_mode: service:dc1-counting1-node
+    container_name: dc1-counting1
+    depends_on:
+      - dc1-counting1-node
+    image: hashicorp/counting-service:0.0.2
+    environment:
+      - PORT=9001
+  dc1-counting1-sidecar:
+    network_mode: service:dc1-counting1-node
+    container_name: dc1-counting1-sidecar
+    depends_on:
+      - dc1-counting1-node
+    image: nicholasjackson/consul-envoy:v1.8.1-v1.14.2
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.3:8500
+      CONSUL_GRPC_ADDR: 10.5.0.3:8502
+    command: ["consul","connect","envoy","-sidecar-for","counting","--","-l","debug","--log-path","/tmp/envoy.log"]
+  dc1-consul-client1:
+    network_mode: service:dc1-counting1-node
+    container_name: dc1-consul-client1
+    depends_on:
+      - dc1-counting1-node
+    image: hashicorp/consul-enterprise:1.8.3-ent
+    command:
+      - consul
+      - agent
+      - -hcl
+      - |
+        advertise_addr     = "10.5.0.3"
+        datacenter         = "dc1"
+        retry_join         = ["10.5.0.2","10.5.0.3"]
+      - -config-file
+      - /config/shared.hcl
+      - -config-file
+      - /services/counting.hcl
+    volumes:
+      - "./config:/config"
+      - "./data/consul-dc1:/data"
+      - "./services/dc1:/services"
+      - "./certs:/certs"
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  # gateway
+  dc1-gateway-node:
+    container_name: dc1-gateway-node
+    hostname: dc1-gateway-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 10.5.0.2
+    ports:
+      - 19005:19005
+    networks:
+      dc1:
+        ipv4_address: 10.5.0.4
+      wan:
+        ipv4_address: 192.168.0.3
+  dc1-gateway:
+    network_mode: service:dc1-gateway-node
+    container_name: dc1-gateway
+    depends_on:
+      - dc1-gateway-node
+    image: nicholasjackson/consul-envoy:v1.8.1-v1.14.2
+    environment:
+      CONSUL_HTTP_ADDR: 10.5.0.2:8500
+      CONSUL_GRPC_ADDR: 10.5.0.2:8502
+    command: ["consul","connect","envoy","-mesh-gateway","-register","-service","dc1-gateway","-address","10.5.0.4:8080","-wan-address","192.168.0.3:8080","-admin-bind","127.0.0.1:19005","--","-l","debug","--log-path","/tmp/envoy.log"]
+
+  ######################
+  # dc2
+  ######################
+
+  # consul server1
+  dc2-consul-server1-node:
+    container_name: dc2-consul-server1-node
+    hostname: dc2-consul-server1-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 127.0.0.1
+    ports:
+      - 8501:8500
+      - 8310:8300
+    networks:
+      dc2:
+        ipv4_address: 10.6.0.2
+      wan:
+        ipv4_address: 192.168.0.4
+  dc2-consul-server1:
+    network_mode: service:dc2-consul-server1-node
+    container_name: dc2-consul-server-1
+    depends_on:
+      - dc2-consul-server1-node
+    image: hashicorp/consul-enterprise:1.8.3-ent
+    command:
+      - consul
+      - agent
+      - -hcl
+      - |
+        advertise_addr     = "10.6.0.2"
+        advertise_addr_wan = "192.168.0.4"
+        datacenter         = "dc2"
+        retry_join         = ["10.6.0.2","10.6.0.3"]
+        retry_join_wan     = ["192.168.0.2","192.168.0.4"]
+      - -config-file
+      - /config/shared.hcl
+      - -config-file
+      - /config/shared-server.hcl
+    volumes:
+      - "./config:/config"
+      - "./data/consul-dc2:/data"
+      - "./services/dc2:/services"
+      - "./certs:/certs"
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  # dashboard
+  dc2-dashboard1-node:
+    container_name: dc2-dashboard1-node
+    hostname: dc2-dashboard1-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 10.6.0.2
+    ports:
+      - 9002:9002
+    networks:
+      dc2:
+        ipv4_address: 10.6.0.3
+  dc2-dashboard1:
+    network_mode: service:dc2-dashboard1-node
+    container_name: dc2-dashboard1
+    depends_on:
+      - dc2-dashboard1-node
+    image: hashicorp/dashboard-service:0.0.4
+    environment:
+      PORT: 9002
+      COUNTING_SERVICE_URL: http://counting.service.consul:9001
+  dc2-dashboard1-sidecar:
+    network_mode: service:dc2-dashboard1-node
+    container_name: dc2-dashboard1-sidecar
+    depends_on:
+      - dc2-dashboard1-node
+    image: nicholasjackson/consul-envoy:v1.8.1-v1.14.2
+    environment:
+      CONSUL_HTTP_ADDR: 10.6.0.3:8500
+      CONSUL_GRPC_ADDR: 10.6.0.3:8502
+    command: ["consul","connect","envoy","-sidecar-for","dashboard","--","-l","debug","--log-path","/tmp/envoy.log"]
+  dc2-consul-client1:
+    network_mode: service:dc2-dashboard1-node
+    container_name: dc2-consul-client1
+    depends_on:
+      - dc2-dashboard1-node
+    image: hashicorp/consul-enterprise:1.8.3-ent
+    command:
+      - consul
+      - agent
+      - -hcl
+      - |
+        advertise_addr     = "10.6.0.3"
+        datacenter         = "dc2"
+        retry_join         = ["10.6.0.2","10.6.0.3"]
+        retry_join_wan     = ["192.168.0.2","192.168.0.4"]
+      - -config-file
+      - /config/shared.hcl
+      - -config-file
+      - /services/dashboard.hcl
+    volumes:
+      - "./config:/config"
+      - "./data/consul-dc2:/data"
+      - "./services/dc2:/services"
+      - "./certs:/certs"
+    environment:
+      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
+
+  # gateway
+  dc2-gateway-node:
+    container_name: dc2-gateway-node
+    hostname: dc2-gateway-node
+    image: gcr.io/google_containers/pause:1.0
+    restart: always
+    dns: 10.6.0.2
+    ports:
+      - 19006:19005
+    networks:
+      dc2:
+        ipv4_address: 10.6.0.4
+      wan:
+        ipv4_address: 192.168.0.5
+  dc2-gateway:
+    network_mode: service:dc2-gateway-node
+    container_name: dc2-gateway
+    depends_on:
+      - dc2-gateway-node
+    image: nicholasjackson/consul-envoy:v1.8.1-v1.14.2
+    environment:
+      CONSUL_HTTP_ADDR: 10.6.0.2:8500
+      CONSUL_GRPC_ADDR: 10.6.0.2:8502
+    command: ["consul","connect","envoy","-mesh-gateway","-register","-service","dc2-gateway","-address","10.6.0.4:8080","-wan-address","192.168.0.5:8080","-admin-bind","127.0.0.1:19005","--","-l","debug","--log-path","/tmp/envoy.log"]
+
+networks:
+  dc1:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
+  dc2:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.6.0.0/16
+  wan:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 192.168.0.0/16
