@@ -14,7 +14,6 @@ service {
             local_bind_port = 5000
           }
         ]
-        local_service_port = 9002
       }
     }
   }

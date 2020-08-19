@@ -7,7 +7,6 @@ service {
         mesh_gateway {
           mode = "local"
         }
-        local_service_port = 9001
       }
     }
   }
