@@ -101,8 +101,6 @@ services:
       - "./data/consul-dc1:/data"
       - "./services/dc1:/services"
       - "./certs:/certs"
-    environment:
-      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
 
   # gateway
   dc1-gateway-node:
@@ -231,8 +229,6 @@ services:
       - "./data/consul-dc2:/data"
       - "./services/dc2:/services"
       - "./certs:/certs"
-    environment:
-      - CONSUL_ALLOW_PRIVILEGED_PORTS=true
 
   # gateway
   dc2-gateway-node:
