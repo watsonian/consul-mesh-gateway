@@ -194,7 +194,7 @@ services:
     image: hashicorp/dashboard-service:0.0.4
     environment:
       PORT: 9002
-      COUNTING_SERVICE_URL: http://counting.service.consul:9001
+      COUNTING_SERVICE_URL: http://localhost:5000
   dc2-dashboard1-sidecar:
     network_mode: service:dc2-dashboard1-node
     container_name: dc2-dashboard1-sidecar

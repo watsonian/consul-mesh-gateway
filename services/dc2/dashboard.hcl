@@ -11,7 +11,7 @@ service {
           {
             destination_name = "counting"
             datacenter = "dc1"
-            local_bind_port = 9001
+            local_bind_port = 5000
           }
         ]
         local_service_port = 9002
